@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mardi — Complet (AM Calisthenie • PM Gammes)</title>
+<style>
+  :root{ --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --brand:#0ea5e9; --ok:#10b981; }
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:linear-gradient(#f8fafc,#fff);color:var(--ink)}
+  a{color:#0369a1;text-decoration:none} .wrap{min-height:100vh;padding:16px} .container{max-width:980px;margin:0 auto}
+  h1{margin:0 0 6px;font-size:clamp(22px,3.5vw,30px);font-weight:800} .sub{color:var(--muted);font-size:14px;margin:0 0 12px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 18px} .label{font-size:12px;color:var(--muted)}
+  input[type="date"],input[type="number"],button{padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+  button{cursor:pointer} .btn{border-color:#cbd5e1;background:white;color:#334155} .btn.primary{border-color:var(--brand);background:#e6f6fd;color:#0b4d66}
+  .bar{height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden} .bar>div{height:100%;background:var(--ok);width:0;transition:width .25s ease}
+  .tiny{font-size:12px;color:var(--muted);margin:6px 0 18px}
+  .card{background:#ffffff;border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.06);overflow:hidden;margin-bottom:14px}
+  .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px} .title{font-weight:800}
+  .bd{padding:0 16px 14px} .pill{font-size:12px;background:#e2e8f0;color:#334155;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .steps{margin-top:8px;border:1px dashed var(--line);border-radius:12px;padding:8px}
+  .step{display:grid;gap:10px;align-items:center;border-bottom:1px dashed var(--line);padding:6px 0}
+  .step:last-child{border-bottom:none} .s-title{font-weight:600} .s-target{color:#0f766e;font-size:12px}
+  .gridCal{grid-template-columns:1fr auto 80px 60px 60px 60px 110px} .s-in{width:100%; max-width:110px}
+  @media (max-width:720px){ .gridCal{grid-template-columns:1fr auto 70px 54px 54px 54px 90px} }
+  .note{font-size:12px;color:#475569;margin-top:6px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="container">
+    <header>
+      <h1>Mardi — Complet</h1>
+      <p class="sub">AM : Calisthenie (sans jambes) • PM : Gammes de course. Saisie S1/S2/S3, sauvegarde par date.</p>
+      <div class="toolbar">
+        <a class="btn" href="tableau_de_bord_colonne_trame.html">← Retour tableau</a>
+        <div><div class="label">Date</div><input type="date" id="datePick" /></div>
+        <button class="btn primary" id="exportCsv">Exporter CSV</button>
+        <button class="btn" id="resetDay">Effacer valeurs du jour</button>
+      </div>
+      <div class="bar"><div id="progress"></div></div>
+      <div class="tiny" id="progressText">Progression : 0/0 • 0%</div>
+    </header>
+
+    <!-- AM CALISTHENIE -->
+    <section class="card">
+      <div class="hd">
+        <div class="title">Matin — Calisthénie (sans jambes) • Circuit x3</div>
+        <div class="pill">Récup 2’ entre tours</div>
+      </div>
+      <div class="bd">
+        <div class="steps" id="calSteps"></div>
+        <div class="note">Marge grasse : 1–2 reps en réserve. Durcir quand borne haute validée (tempo, amplitude, légère charge).</div>
+      </div>
+    </section>
+
+    <!-- PM GAMMES -->
+    <section class="card">
+      <div class="hd">
+        <div class="title">Soir — Gammes de course</div>
+        <div class="pill">3 à 5 répétitions par exercice</div>
+      </div>
+      <div class="bd">
+        <div class="steps" id="runSteps"></div>
+        <div class="note">Footing 5’ en échauffement, retour au calme 3–5’ en fin. Rester propre techniquement (amplitude maîtrisée, posture relâchée).</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const today=()=>new Date().toISOString().slice(0,10);
+const LS="mardi_complet_v1";
+
+function readDB(){ try{ return JSON.parse(localStorage.getItem(LS)||"{}"); }catch(e){ return {}; } }
+function writeDB(db){ localStorage.setItem(LS, JSON.stringify(db)); }
+function getVal(date,key){ const db=readDB(); return db?.[date]?.[key] ?? ""; }
+function setVal(date,key,val){ const db=readDB(); if(!db[date]) db[date]={}; db[date][key]=val; writeDB(db); }
+
+// AM calisthenics (no legs)
+const CAL_PLAN = [
+  {k:"C01", name:"Relevés de jambes — barres parallèles", target:"10–12 reps • repos 45s"},
+  {k:"C02", name:"Tractions australiennes (pronation)", target:"8–12 reps • repos 60s"},
+  {k:"C03", name:"Crunch heel touch", target:"20/côté • repos 30s"},
+  {k:"C04", name:"Pike push-ups", target:"8–12 reps • repos 60s"},
+  {k:"C05", name:"Tractions négatives (excentrique lent)", target:"3–5 reps • repos 90s"},
+  {k:"C06", name:"Pompes explosives", target:"6–10 reps • repos 45–60s"},
+  {k:"C07", name:"Dips sur banc (jambes tendues)", target:"10–12 reps • repos 60s"},
+  {k:"C08", name:"Crunch oblique", target:"15/côté • repos 30s"}
+];
+
+// PM running drills
+const RUN_PLAN = [
+  {k:"R01", name:"Montées de genoux", target:"3–5 reps • récup 1’"},
+  {k:"R02", name:"Talons-fesses", target:"3–5 reps • récup 1’"},
+  {k:"R03", name:"Skipping", target:"3–5 reps • récup 1’"},
+  {k:"R04", name:"Pas chassés", target:"3–5 reps • récup 1’"},
+  {k:"R05", name:"Foulées bondissantes", target:"3–5 reps • récup 1’"}
+];
+
+function buildBlock(rootId, plan, date){
+  const root=$(rootId); root.innerHTML="";
+  plan.forEach((it,i)=>{
+    const row=document.createElement('div');
+    row.className="step gridCal";
+    row.innerHTML = `
+      <div>
+        <div class="s-title">${(i+1).toString().padStart(2,'0')} — ${it.name}</div>
+        <div class="s-target">${it.target}</div>
+      </div>
+      <div class="lbl">S1 / S2 / S3</div>
+      <input class="s-in" data-id="${it.k}_1" type="number" step="1" placeholder="valeur">
+      <input class="s-in" data-id="${it.k}_2" type="number" step="1" placeholder="valeur">
+      <input class="s-in" data-id="${it.k}_3" type="number" step="1" placeholder="valeur">
+      <input class="s-in" data-id="${it.k}_avg" type="number" step="0.1" placeholder="moy." title="Moyenne (auto si vide)">
+    `;
+    root.appendChild(row);
+  });
+  // hydrate
+  root.querySelectorAll('input.s-in').forEach(inp=>{
+    const key=inp.dataset.id; inp.value=getVal(date,key);
+    inp.onchange=()=>{ setVal(date, key, inp.value); refreshProgress(); };
+  });
+}
+
+function autoAvg(date, base){
+  const vals=[1,2,3].map(i=> parseFloat(getVal(date, `${base}_${i}`))).filter(v=>!isNaN(v));
+  if(!vals.length) return ""; return (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+}
+
+function refreshAuto(date){
+  [...document.querySelectorAll('input.s-in[data-id$="_avg"]')].forEach(inp=>{
+    if(inp.value===""){
+      const base = inp.dataset.id.replace("_avg","");
+      const v = autoAvg(date, base); if(v!=="") { setVal(date, inp.dataset.id, v); inp.value=v; }
+    }
+  });
+}
+
+function refreshProgress(){
+  const all = document.querySelectorAll('input.s-in'); const total=all.length;
+  let filled=0; all.forEach(i=>{ if(i.value!=="") filled++; });
+  const pct = Math.round((filled/total)*100);
+  document.getElementById('progress').style.width = pct+"%";
+  document.getElementById('progressText').textContent = `Progression : ${filled}/${total} • ${pct}%`;
+}
+
+function exportCsv(){
+  const db=readDB(); const rows=[["date","clé","valeur"]];
+  Object.keys(db).sort().forEach(d=>{ Object.keys(db[d]).forEach(k=> rows.push([d,k,db[d][k]])); });
+  const csv = rows.map(r=> r.map(v=>{ const s=String(v??""); return /[\",;\n;]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }).join(";")).join("\n");
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='mardi_complet.csv'; a.click();
+}
+
+function resetDay(){
+  const d=$("#datePick").value, db=readDB(); if(!db[d]) return;
+  Object.keys(db[d]).forEach(k=> db[d][k]=""); writeDB(db); mount();
+}
+
+function mount(){
+  const dp=$("#datePick"); if(!dp.value) dp.value=today();
+  buildBlock("#calSteps", CAL_PLAN, dp.value);
+  buildBlock("#runSteps", RUN_PLAN, dp.value);
+  refreshAuto(dp.value); refreshProgress();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $("#datePick").addEventListener('change', mount);
+  document.getElementById('exportCsv').addEventListener('click', exportCsv);
+  document.getElementById('resetDay').addEventListener('click', resetDay);
+  mount();
+});
+</script>
+</body>
+</html>
