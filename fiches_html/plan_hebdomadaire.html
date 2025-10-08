@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Plan hebdo – Vue HTML</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f7fafc;color:#0f172a}
+  .wrap{max-width:900px;margin:0 auto;padding:16px}
+  h1{font-size:22px;margin:8px 0 12px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+  select,input{padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}
+  th,td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:top}
+  th{background:#f1f5f9;text-align:left}
+  tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;background:#ffffffcc;backdrop-filter:saturate(180%) blur(6px);padding:10px;border-bottom:1px solid #e2e8f0">
+  <a href="../index.html" style="text-decoration:none;color:#0f172a">← Accueil</a>
+</nav>
+<div class="wrap">
+  <h1>Planning hebdomadaire</h1>
+  <div class="tools">
+    <select id="filtreJour">
+      <option value="">Tous les jours</option>
+      <option>Lundi</option><option>Mardi</option><option>Mercredi</option>
+      <option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option>
+    </select>
+    <input id="search" placeholder="Rechercher (type, séance, détail…)" />
+  </div>
+  <table id="tbl">
+    <thead><tr>
+      <th>Jour</th><th>Moment</th><th>Type</th><th>Séance</th><th>Détails</th><th>Durée</th><th>Intensité</th><th>Récup</th><th>Lieu</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<script>
+const CSV_URL = '../Planification/plan_hebdo.csv';
+const tbody = document.querySelector('#tbl tbody');
+const sel = document.getElementById('filtreJour');
+const search = document.getElementById('search');
+let rows = [];
+
+fetch(CSV_URL).then(r=>r.text()).then(txt=>{
+  // support ; ou , comme séparateur
+  const sep = txt.includes(';') ? ';' : ',';
+  const lines = txt.trim().split(/\r?\n/);
+  const headers = lines.shift().split(sep).map(h=>h.trim());
+  rows = lines.map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim()));
+  render();
+});
+
+function render(){
+  const q = (search.value||'').toLowerCase();
+  const jour = sel.value;
+  tbody.innerHTML = '';
+  rows.filter(r=>{
+    const passJour = !jour || r[0]===jour;
+    const passText = !q || r.join(' ').toLowerCase().includes(q);
+    return passJour && passText;
+  }).forEach(r=>{
+    const tr = document.createElement('tr');
+    r.forEach((c,i)=>{
+      const td = document.createElement('td'); td.textContent = c; tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+sel.addEventListener('change', render);
+search.addEventListener('input', render);
+</script>
+</body>
+</html>
