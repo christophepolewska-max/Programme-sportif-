@@ -1,77 +1,73 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Plan hebdo – Vue HTML</title>
-<style>
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#f7fafc;color:#0f172a}
-  .wrap{max-width:900px;margin:0 auto;padding:16px}
-  h1{font-size:22px;margin:8px 0 12px}
-  .tools{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
-  select,input{padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
-  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}
-  th,td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:top}
-  th{background:#f1f5f9;text-align:left}
-  tr:last-child td{border-bottom:none}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Planning hebdomadaire</title>
+  <style>
+    :root{--bg:#f7fafc;--fg:#0f172a;--mut:#64748b;--card:#fff;--bd:#e2e8f0}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--fg)}
+    .wrap{max-width:900px;margin:0 auto;padding:20px}
+    h1{margin:6px 0 14px;font-size:22px}
+    .bar{display:flex;gap:10px;margin:8px 0 16px}
+    .bar a{padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);text-decoration:none;color:var(--fg)}
+    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--bd);vertical-align:top}
+    th{background:#f1f5f9;text-align:left;font-weight:600}
+    tr:last-child td{border-bottom:none}
+    .muted{color:var(--mut)}
+  </style>
 </head>
 <body>
-<nav style="position:sticky;top:0;background:#ffffffcc;backdrop-filter:saturate(180%) blur(6px);padding:10px;border-bottom:1px solid #e2e8f0">
-  <a href="../index.html" style="text-decoration:none;color:#0f172a">← Accueil</a>
-</nav>
-<div class="wrap">
-  <h1>Planning hebdomadaire</h1>
-  <div class="tools">
-    <select id="filtreJour">
-      <option value="">Tous les jours</option>
-      <option>Lundi</option><option>Mardi</option><option>Mercredi</option>
-      <option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option>
-    </select>
-    <input id="search" placeholder="Rechercher (type, séance, détail…)" />
+  <div class="wrap">
+    <h1>Planning hebdomadaire</h1>
+    <div class="bar">
+      <a href="../index.html">← Retour semaine</a>
+      <a id="csvLink" href="../Planification/plan_hebdo.csv">📄 Ouvrir le CSV</a>
+    </div>
+    <p class="muted">Source : <code>Planification/plan_hebdo.csv</code></p>
+
+    <table id="tbl"><thead></thead><tbody></tbody></table>
   </div>
-  <table id="tbl">
-    <thead><tr>
-      <th>Jour</th><th>Moment</th><th>Type</th><th>Séance</th><th>Détails</th><th>Durée</th><th>Intensité</th><th>Récup</th><th>Lieu</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
-</div>
-<script>
-const CSV_URL = '../Planification/plan_hebdo.csv';
-const tbody = document.querySelector('#tbl tbody');
-const sel = document.getElementById('filtreJour');
-const search = document.getElementById('search');
-let rows = [];
 
-fetch(CSV_URL).then(r=>r.text()).then(txt=>{
-  // support ; ou , comme séparateur
-  const sep = txt.includes(';') ? ';' : ',';
-  const lines = txt.trim().split(/\r?\n/);
-  const headers = lines.shift().split(sep).map(h=>h.trim());
-  rows = lines.map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim()));
-  render();
-});
+  <script>
+    // Chemin du CSV (depuis ce fichier placé dans /fiches_html/)
+    const CSV_PATH = "../Planification/plan_hebdo.csv";
 
-function render(){
-  const q = (search.value||'').toLowerCase();
-  const jour = sel.value;
-  tbody.innerHTML = '';
-  rows.filter(r=>{
-    const passJour = !jour || r[0]===jour;
-    const passText = !q || r.join(' ').toLowerCase().includes(q);
-    return passJour && passText;
-  }).forEach(r=>{
-    const tr = document.createElement('tr');
-    r.forEach((c,i)=>{
-      const td = document.createElement('td'); td.textContent = c; tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
+    // utilitaires CSV -> array
+    function parseCSV(text){
+      const rows = [];
+      let cur = '', row = [], inQ = false;
+      for (let i=0;i<text.length;i++){
+        const c = text[i], n = text[i+1];
+        if (c === '"' && n === '"'){ cur += '"'; i++; continue; }
+        if (c === '"'){ inQ = !inQ; continue; }
+        if (!inQ && (c === ',')){ row.push(cur.trim()); cur = ''; continue; }
+        if (!inQ && (c === '\n' || c === '\r')){
+          if (cur.length || row.length){ row.push(cur.trim()); rows.push(row); row=[]; cur=''; }
+          continue;
+        }
+        cur += c;
+      }
+      if (cur.length || row.length) { row.push(cur.trim()); rows.push(row); }
+      return rows.filter(r => r.length && r.some(x=>x!=='')); // nettoie
+    }
 
-sel.addEventListener('change', render);
-search.addEventListener('input', render);
-</script>
+    async function load(){
+      const res = await fetch(CSV_PATH);
+      if(!res.ok){ document.querySelector('.muted').textContent = "CSV introuvable ("+res.status+")"; return; }
+      const rows = parseCSV(await res.text());
+      const [head, ...body] = rows;
+
+      const thead = document.querySelector('#tbl thead');
+      const tbody = document.querySelector('#tbl tbody');
+      thead.innerHTML = "<tr>"+head.map(h=>`<th>${h}</th>`).join("")+"</tr>";
+      tbody.innerHTML = body.map(r=>"<tr>"+head.map((_,i)=>`<td>${(r[i]??'').replaceAll('\t',' ').replaceAll('  ',' ')}</td>`).join("")+"</tr>").join("");
+      
+      // met à jour le lien CSV
+      document.getElementById('csvLink').href = CSV_PATH;
+    }
+    load();
+  </script>
 </body>
 </html>
